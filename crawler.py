@@ -1,80 +1,103 @@
 import requests
+from bs4 import BeautifulSoup
 import json
 from datetime import datetime, timedelta
 
-def fetch_taiwan_lottery_data():
-    print("🚀 [AI 分析站後端] 正在連線至台灣彩券官方 API 抓取賓果真實號碼...")
+def fetch_auzo_real_data():
+    print("🚀 [AI 分析站後端] 開始用直攻法抓取奧索樂透網賓果數據...")
     
-    # 台灣彩券官方公開的賓果賓果即時開獎 API
-    url = "https://api.taiwanlottery.com.tw/TLCAPIWeB/Lottery/BingoBingoResult"
-    
+    url = "https://lotto.auzo.tw/RK.php"
     headers = {
-        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
-        "Accept": "application/json"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
     try:
-        # 設定 5 秒超時避免伺服器卡死
-        response = requests.get(url, headers=headers, timeout=5)
+        # 連線奧索
+        response = requests.get(url, headers=headers, timeout=10)
+        response.encoding = 'utf-8'
         
         if response.status_code != 200:
-            print(f"❌ 答覆失敗，台彩伺服器回應狀態碼：{response.status_code}")
+            print("❌ 連線奧索失敗，狀態碼：", response.status_code)
             return False
             
-        data = response.json()
-        raw_content = data.get("content", [])
-        
-        if not raw_content:
-            print("❌ 成功連線，但台彩官方目前未回傳任何開獎內容")
-            return False
-            
+        soup = BeautifulSoup(response.text, "html.parser")
         latest_20_periods = []
         
-        # 精準解析台彩官方回傳的最新 20 期真實開獎數據
-        for item in raw_content[:20]:
-            period_num = str(item.get("period"))
-            
-            # drawNo 為台彩開獎號碼數組，轉為整數並自動排序
-            nums = sorted([int(n) for n in item.get("drawNo", []) if str(n).isdigit()])
-            # superNo 為台彩官方當期超級獎號
-            super_num = int(item.get("superNo", 0)) if str(item.get("superNo")).isdigit() else (nums[0] if nums else 1)
-            
-            if len(nums) == 20:
-                latest_20_periods.append({
-                    "period": period_num,
-                    "numbers": nums,
-                    "super_num": super_num
-                })
+        # 尋找網頁中所有的表格列
+        rows = soup.find_all("tr")
+        
+        for row in rows:
+            tds = row.find_all("td")
+            # 奧索的賓果表格通常每一列會有：期號、開獎號碼、超級獎號
+            if len(tds) >= 3:
+                period_text = tds[0].text.strip()
                 
+                # 檢查第一欄是不是純數字的期號（例如 115035033）
+                if not period_text.isdigit() or len(period_text) < 7:
+                    continue
+                    
+                # 解析開獎號碼 (第二欄，號碼之間通常有空格或逗號)
+                nums_text = tds[1].text.strip()
+                # 把號碼切開，轉成整數並排序
+                raw_nums = nums_text.replace(",", " ").split()
+                nums = sorted([int(x) for x in raw_nums if x.isdigit()])
+                
+                # 解析超級獎號 (第三欄)
+                super_text = tds[2].text.strip()
+                super_num = int(super_text) if super_text.isdigit() else (nums[0] if nums else 1)
+                
+                # 只要剛好是 20 個號碼，就是我們要的賓果資料！
+                if len(nums) == 20:
+                    latest_20_periods.append({
+                        "period": period_text,
+                        "numbers": nums,
+                        "super_num": super_num
+                    })
+
         if not latest_20_periods:
-            print("❌ 解析開獎數據失敗，資料格式可能不符")
+            print("❌ 奧索結構解析失敗，啟動緊急官方 API 保底方案...")
+            # 保底方案：避免網頁掛掉時畫面全空
+            api_url = "https://api.taiwanlottery.com.tw/TLCAPIWeB/Lottery/BingoBingoResult"
+            api_res = requests.get(api_url, headers=headers, timeout=5)
+            if api_res.status_code == 200:
+                content = api_res.json().get("content", [])
+                for item in content[:20]:
+                    latest_20_periods.append({
+                        "period": str(item.get("period")),
+                        "numbers": sorted([int(n) for n in item.get("drawNo", [])]),
+                        "super_num": int(item.get("superNo", 0))
+                    })
+
+        if not latest_20_periods:
+            print("❌ 無法取得任何資料")
             return False
 
-        # --- AI 統計與核心預測邏輯 ---
-        all_numbers_drawn = []
+        # 按期號由大到小排序，確保最新的一期在最上面
+        latest_20_periods.sort(key=lambda x: int(x["period"]), reverse=True)
+
+        # --- AI 預測邏輯 ---
+        all_numbers = []
         for period in latest_20_periods:
-            all_numbers_drawn.extend(period["numbers"])
-            
-        num_counts = {i: all_numbers_drawn.count(i) for i in range(1, 81)}
+            all_numbers.extend(period["numbers"])
+        num_counts = {i: all_numbers.count(i) for i in range(1, 81)}
         sorted_by_hot = sorted(num_counts, key=num_counts.get, reverse=True)
         
-        # 根據台彩真實開獎數據，篩選出最熱門的號碼進行 AI 預測
         ai_recommended_nums = sorted([
             sorted_by_hot[0], sorted_by_hot[1], 
             sorted_by_hot[5], sorted_by_hot[12], sorted_by_hot[22]
         ])
         ai_recommended_super = sorted_by_hot[0]
         
-        # 算出台彩官方的下一期期號
+        # 下一期期號
         next_period_num = str(int(latest_20_periods[0]["period"]) + 1)
         
-        # 轉為台灣時間 (UTC+8) 顯示於網頁更新時間
+        # 台灣時間
         tw_now = datetime.utcnow() + timedelta(hours=8)
         current_time_str = tw_now.strftime("%Y-%m-%d %H:%M:%S")
         
         output_data = {
             "last_updated": current_time_str,
-            "latest_data": latest_20_periods,
+            "latest_data": latest_20_periods[:20],
             "prediction": {
                 "next_period": next_period_num,
                 "recommended_numbers": ai_recommended_nums,
@@ -85,12 +108,12 @@ def fetch_taiwan_lottery_data():
         with open("data.json", "w", encoding="utf-8") as f:
             json.dump(output_data, f, ensure_ascii=False, indent=2)
             
-        print(f"✅ 台彩官網數據同步成功！最新真實期號為：{latest_20_periods[0]['period']}")
+        print(f"✅ 奧索真實數據同步成功！最新即時期號：{latest_20_periods[0]['period']}")
         return True
 
     except Exception as e:
-        print(f"❌ 執行發生錯誤: {str(e)}")
+        print(f"❌ 發生錯誤: {str(e)}")
         return False
 
 if __name__ == "__main__":
-    fetch_taiwan_lottery_data()
+    fetch_auzo_real_data()
