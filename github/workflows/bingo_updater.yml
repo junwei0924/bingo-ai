@@ -1,0 +1,34 @@
+name: 自動更新賓果數據與 AI 預測
+
+on:
+  schedule:
+    # 每 10 分鐘自動執行一次 (賓果每 5 分鐘開一期)
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # 允許你在 GitHub 介面上手動點擊按鈕執行測試
+
+jobs:
+  run-crawler:
+    runs-on: ubuntu-latest
+    steps:
+    - name: 檢查並複製專案程式碼
+      uses: actions/checkout@v4
+
+    - name: 設定 Python 環境
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: 安裝爬蟲所需套件
+      run: |
+        pip install requests beautifulsoup4
+
+    - name: 執行 AI 爬蟲腳本
+      run: python crawler.py
+
+    - name: 自動將產生的 data.json 推回倉庫並更新網頁
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action Bot"
+        git add data.json
+        git commit -m "🤖 自動同步最新開獎並產出 AI 預測 [Skip CI]" || exit 0
+        git push
