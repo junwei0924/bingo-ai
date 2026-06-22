@@ -3,116 +3,188 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BINGO AI 分析站</title>
+    <title>BINGO BINGO 賓果賓果 AI 預測站</title>
     <style>
-        body { font-family: 'Microsoft JhengHei', sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 800px; margin: 0 auto; }
-        header { text-align: center; margin-bottom: 30px; }
-        h1 { color: #0056b3; margin-bottom: 5px; }
-        .update-time { color: #666; font-size: 14px; }
-        
-        /* 預測區塊樣式 */
-        .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .card-title { font-size: 20px; font-weight: bold; margin-bottom: 15px; border-left: 5px solid #0056b3; padding-left: 10px; color: #0056b3; }
-        .prediction-box { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
-        .ball { width: 40px; height: 40px; background: #e9ecef; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; border: 2px solid #ced4da; }
-        .ball.hot { background: #ff4d4d; color: white; border-color: #ff1a1a; }
-        .ball.super { background: #ffcc00; color: #333; border-color: #ffaa00; font-size: 18px; width: 45px; height: 45px; }
-        
-        /* 歷史表格樣式 */
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
-        th, td { padding: 12px; text-align: center; border-bottom: 1px solid #ddd; }
-        th { background-color: #0056b3; color: white; }
-        tr:hover { background-color: #f1f1f1; }
-        .history-balls { display: flex; justify-content: center; gap: 5px; flex-wrap: wrap; }
-        .s-ball { width: 24px; height: 24px; font-size: 12px; background: #007bff; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-        .s-ball.s-super { background: #ffcc00; color: black; font-weight: bold; }
+        body {
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        h1 {
+            text-align: center;
+            color: #d32f2f;
+            margin-bottom: 5px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 25px;
+        }
+        .update-time {
+            text-align: center;
+            font-size: 12px;
+            color: #999;
+            margin-top: -15px;
+            margin-bottom: 25px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            border-left: 5px solid #d32f2f;
+            padding-left: 10px;
+            margin: 25px 0 15px 0;
+        }
+        .prediction-box {
+            background: #fff5f5;
+            border: 2px dashed #ffcdd2;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .ball-container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 15px;
+        }
+        .ball {
+            width: 45px;
+            height: 45px;
+            background: #d32f2f;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+            box-shadow: 0 3px 6px rgba(211, 47, 47, 0.3);
+        }
+        .super-ball {
+            background: #ffb300;
+            box-shadow: 0 3px 6px rgba(255, 179, 0, 0.4);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: center;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background-color: #f8f9fa;
+            color: #555;
+        }
+        .table-super-ball {
+            display: inline-block;
+            width: 28px;
+            height: 28px;
+            background: #ffb300;
+            color: #333;
+            border-radius: 50%;
+            line-height: 28px;
+            font-weight: bold;
+        }
+        .history-numbers {
+            color: #555;
+            letter-spacing: 1px;
+            line-height: 1.6;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <header>
-        <h1>🎯 BINGO AI 分析站</h1>
-        <div class="update-time" id="sync-time">資料載入中...</div>
-    </header>
+    <h1>🎰 BINGO AI 大數據預測站</h1>
+    <div class="subtitle">同步台彩官網數據 · 每 5 分鐘自動刷新</div>
+    <div class="update-time" id="update-time">最後同步時間：載入中...</div>
 
-    <div class="card">
-        <div class="card-title">🔮 AI 下期開獎推薦 (<span id="next-period">---</span> 期)</div>
-        <p><strong>AI 推薦號碼：</strong></p>
-        <div class="prediction-box" id="predict-balls">
-            </div>
-        <p style="margin-top: 20px;"><strong>AI 推薦超級獎號：</strong></p>
-        <div class="prediction-box" id="predict-super-ball">
+    <div class="section-title">🔮 下期 AI 智慧推薦號碼</div>
+    <div class="prediction-box">
+        <div style="font-size: 16px; color: #555;">預估開出期號：<strong id="next-period" style="color: #d32f2f;">--</strong></div>
+        <div class="ball-container" id="prediction-balls">
             </div>
     </div>
 
-    <div class="card">
-        <div class="card-title">📊 近 20 期開獎數據 (自動更新)</div>
-        <div style="overflow-x: auto;">
-            <table>
-                <thead>
-                    <tr>
-                        <th>期號</th>
-                        <th>開獎號碼</th>
-                        <th>超級獎號</th>
-                    </tr>
-                </thead>
-                <tbody id="history-table-body">
-                    <tr>
-                        <td colspan="3">等待資料同步中...</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
+    <div class="section-title">📊 歷史開獎紀錄（近 20 期真實數據）</div>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 20%;">開獎期號</th>
+                <th style="width: 65%;">開出號碼</th>
+                <th style="width: 15%;">超級獎號</th>
+            </tr>
+        </thead>
+        <tbody id="history-table">
+            <tr>
+                <td colspan="3" style="color: #999;">正在連線官方資料庫，請稍候...</td>
+            </tr>
+        </tbody>
+    </table>
 </div>
 
 <script>
-    // 網頁向 GitHub 讀取最新 JSON 資料的邏輯
-    async function updateBingoData() {
-        try {
-            // 讀取同目錄下的 data.json，後面加時間戳防止瀏覽器快取舊資料
-            const response = await fetch('./data.json?t=' + new Date().getTime());
-            if (!response.ok) throw new Error('尚未產生資料檔');
-            const data = await response.json();
+    function fetchData() {
+        // 後端產出的最新 JSON 數據包，強制加上時間戳防快取
+        fetch('data.json?t=' + new Date().getTime())
+            .then(response => response.json())
+            .then(data => {
+                // 1. 更新最後同步時間
+                document.getElementById('update-time').innerText = '最後同步時間：' + data.last_updated;
 
-            // 1. 更新時間與期號
-            document.getElementById('sync-time').innerText = `最後同步時間：${data.last_updated}`;
-            document.getElementById('next-period').innerText = data.prediction.next_period;
+                // 2. 更新 AI 預測區塊
+                document.getElementById('next-period').innerText = data.prediction.next_period;
+                
+                let predictionHtml = '';
+                // 貼上 5 個推薦號碼球
+                data.prediction.recommended_numbers.forEach(num => {
+                    predictionHtml += `<div class="ball">${String(num).padStart(2, '0')}</div>`;
+                });
+                // 貼上超級獎號球（黃色）
+                predictionHtml += `<div class="ball super-ball" title="超級獎號">${String(data.prediction.recommended_super_number).padStart(2, '0')}</div>`;
+                document.getElementById('prediction-balls').innerHTML = predictionHtml;
 
-            // 2. 渲染 AI 推薦號碼
-            const predictBallsContainer = document.getElementById('predict-balls');
-            predictBallsContainer.innerHTML = data.prediction.recommended_numbers
-                .map(num => `<div class="ball hot">${String(num).padStart(2, '0')}</div>`).join('');
-
-            // 3. 渲染 AI 推薦超級獎號
-            const predictSuperContainer = document.getElementById('predict-super-ball');
-            predictSuperContainer.innerHTML = `<div class="ball super">${String(data.prediction.recommended_super_number).padStart(2, '0')}</div>`;
-
-            // 4. 渲染近 20 期歷史表格
-            const tableBody = document.getElementById('history-table-body');
-            tableBody.innerHTML = data.latest_data.map(row => {
-                const ballsHTML = row.numbers.map(num => `<div class="s-ball">${num}</div>`).join('');
-                return `
-                    <tr>
-                        <td><strong>${row.period}</strong></td>
-                        <td><div class="history-balls">${ballsHTML}</div></td>
-                        <td><div class="history-balls"><div class="s-ball s-super">${row.super_num}</div></div></td>
-                    </tr>
-                `;
-            }).join('');
-
-        } catch (error) {
-            document.getElementById('sync-time').innerText = `資料載入失敗或正在初始化中...`;
-            console.error(error);
-        }
+                // 3. 更新 20 期歷史開獎表格
+                let tableHtml = '';
+                data.latest_data.forEach(period => {
+                    let formattedNumbers = period.numbers.map(n => String(n).padStart(2, '0')).join(' ');
+                    tableHtml += `
+                        <tr>
+                            <td style="font-weight: bold; color: #444;">${period.period}</td>
+                            <td class="history-numbers">${formattedNumbers}</td>
+                            <td><span class="table-super-ball">${String(period.super_num).padStart(2, '0')}</span></td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('history-table').innerHTML = tableHtml;
+                console.log('🔄 賓果數據已成功更新！');
+            })
+            .catch(error => {
+                console.error('❌ 讀取數據失敗:', error);
+            });
     }
 
-    // 每 30 秒自動刷新網頁數據
-    setInterval(updateBingoData, 30000);
-    // 網頁開啟時先執行一次
-    updateBingoData();
+    // 網頁開啟時立刻載入一次
+    fetchData();
+
+    // 【核心設定】每 5 分鐘（300000毫秒）在背景無感刷新一次網頁數據！
+    setInterval(fetchData, 300000);
 </script>
 
 </body>
