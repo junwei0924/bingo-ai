@@ -1,33 +1,35 @@
-name: 自動更新賓果數據與 AI 預測
+name: 台灣彩券官網 Bingo 數據與 AI 預測自動刷新
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
-  workflow_dispatch:
+    - cron: '*/5 * * * *'  # 每 5 分鐘自動執行一次
+  workflow_dispatch:     # 允許你在 Actions 頁面手動點擊執行
 
 jobs:
   run-crawler:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write    # 強制賦予這個任務寫入倉庫的權限
     steps:
-    - name: 檢查並複製專案程式碼
-      uses: actions/checkout@v4
+    - name: 檢查專案代碼
+      uses: actions/checkout@v3
 
     - name: 設定 Python 環境
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v4
       with:
         python-version: '3.10'
 
-    - name: 安裝爬蟲所需套件
+    - name: 安裝必要套件
       run: |
-        pip install requests beautifulsoup4
+        pip install requests
 
-    - name: 執行 AI 爬蟲腳本
+    - name: 執行賓果爬蟲精算
       run: python crawler.py
 
-    - name: 自動將產生的 data.json 推回倉庫並更新網頁
+    - name: 強制將最新數據推回 GitHub
       run: |
         git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action Bot"
+        git config --local user.name "GitHub Action"
         git add data.json
-        git commit -m "🤖 自動同步最新開獎並產出 AI 預測 [Skip CI]" || exit 0
-        git push
+        # 檢查檔案有沒有變動，有變動才提交，避免報錯卡住
+        git diff --quiet && git diff --staged --quiet || (git commit -m "自動更新台彩最新20期數據" && git push)
