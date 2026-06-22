@@ -2,29 +2,88 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>BINGO AI 測試中</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BINGO AI 賓果賓果 AI 大數據預測站</title>
+    <style>
+        body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #d32f2f; margin: 0 0 10px 0; }
+        .update-time { text-align: center; font-size: 13px; color: #777; margin-bottom: 20px; }
+        .section-title { font-size: 18px; font-weight: bold; border-left: 5px solid #d32f2f; padding-left: 10px; margin: 25px 0 15px 0; }
+        .prediction-box { background: #fff5f5; border: 2px dashed #ffcdd2; padding: 20px; border-radius: 10px; text-align: center; }
+        .ball-container { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 15px; }
+        .ball { width: 40px; height: 40px; background: #d32f2f; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .super-ball { background: #ffb300; color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 10px; text-align: center; border-bottom: 1px solid #eee; font-size: 13px; }
+        .super-tag { background: #ffb300; color: #333; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+    </style>
 </head>
 <body>
-    <div id="status">開始執行...</div>
-    <div id="content"></div>
 
-    <script>
-        async function test() {
-            const status = document.getElementById('status');
-            status.innerText = "正在連線...";
-            try {
-                // 改用這個公開的 API 轉接器
-                const response = await fetch("https://api.allorigins.win/get?url=https://api.taiwanlottery.com.tw/TLCAPIWeB/Lottery/BingoBingoResult");
-                if (!response.ok) throw new Error("HTTP 錯誤");
-                const data = await response.json();
-                status.innerText = "資料已抓取！正在解析...";
-                const res = JSON.parse(data.contents);
-                document.getElementById('content').innerText = "最新一期號碼: " + res.content[0].drawNo.join(', ');
-            } catch (e) {
-                status.innerText = "失敗: " + e.message;
-            }
+<div class="container">
+    <h1>🎰 BINGO AI 預測站</h1>
+    <div class="update-time" id="update-time">狀態：連線中...</div>
+
+    <div class="section-title">🔮 下期 AI 預測（含超級獎號）</div>
+    <div class="prediction-box">
+        <div style="margin-bottom:10px;">預估期號：<strong id="next-period" style="color: #d32f2f;">--</strong></div>
+        <div class="ball-container" id="prediction-balls"></div>
+    </div>
+
+    <div class="section-title">📊 近 10 期開獎歷史</div>
+    <table>
+        <thead><tr><th>期號</th><th>開出號碼</th><th>超級獎號</th></tr></thead>
+        <tbody id="history-table"><tr><td colspan="3">正在從官方擷取數據...</td></tr></tbody>
+    </table>
+</div>
+
+<script>
+    // 使用一個公開的 CORS Proxy 來繞過台彩的阻擋
+    const API_URL = "https://api.allorigins.win/get?url=" + encodeURIComponent("https://api.taiwanlottery.com.tw/TLCAPIWeB/Lottery/BingoBingoResult");
+
+    async function updateData() {
+        try {
+            const response = await fetch(API_URL);
+            const data = await response.json();
+            const res = JSON.parse(data.contents);
+            const content = res.content.slice(0, 10); // 取近 10 期
+
+            // 處理 AI 邏輯
+            let allNums = [];
+            content.forEach(p => allNums.push(...p.drawNo.map(Number)));
+            let counts = {};
+            for(let i=1; i<=80; i++) counts[i] = 0;
+            allNums.forEach(n => counts[n]++);
+            let hotNums = Object.keys(counts).sort((a,b) => counts[b] - counts[a]);
+            
+            // 選 9 碼 + 1 超級獎號
+            let predNums = hotNums.slice(0, 9).map(Number).sort((a,b)=>a-b);
+            let superNum = parseInt(hotNums[0]);
+
+            // 更新畫面
+            document.getElementById('update-time').innerText = '最後更新：' + new Date().toLocaleTimeString();
+            document.getElementById('next-period').innerText = parseInt(content[0].period) + 1;
+            
+            let ballsHtml = predNums.map(n => `<div class="ball">${n}</div>`).join('') + `<div class="ball super-ball">${superNum}</div>`;
+            document.getElementById('prediction-balls').innerHTML = ballsHtml;
+
+            let tableHtml = content.map(p => `
+                <tr>
+                    <td>${p.period}</td>
+                    <td>${p.drawNo.join(', ')}</td>
+                    <td><span class="super-tag">${p.superNo}</span></td>
+                </tr>
+            `).join('');
+            document.getElementById('history-table').innerHTML = tableHtml;
+
+        } catch (e) {
+            document.getElementById('update-time').innerText = '連線失敗，請檢查網路';
         }
-        test();
-    </script>
+    }
+
+    updateData();
+    setInterval(updateData, 300000); // 每 5 分鐘自動刷新
+</script>
 </body>
 </html>
