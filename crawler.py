@@ -1,65 +1,43 @@
 import requests
-from bs4 import BeautifulSoup
 import json
 from datetime import datetime, timedelta
 
-def fetch_auzo_bingo_data():
-    print("🚀 [AI 分析站後端] 正在連線至奧索樂透網抓取真實賓果號碼...")
+def fetch_fast_bingo_data():
+    print("🚀 [AI 分析站後端] 正在連線至台彩官方高速 API 管道...")
     
-    url = "https://lotto.auzo.tw/RK.php"
+    # 2026年最新台彩官方賓果賓果公開 API 網址
+    url = "https://api.taiwanlottery.com.tw/TLCAPIWeB/Lottery/BingoBingoResult"
+    
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
+        "Accept": "application/json"
     }
     
     try:
-        response = requests.get(url, headers=headers, timeout=15)
-        response.encoding = 'utf-8' # 確保中文與符號不亂碼
+        # 設定超時時間為 5 秒，防止無限卡死
+        response = requests.get(url, headers=headers, timeout=5)
         
         if response.status_code != 200:
-            print("❌ 無法連線至奧索樂透網")
+            print("❌ 官方 API 連線失敗，狀態碼：", response.status_code)
             return False
             
-        soup = BeautifulSoup(response.text, "html.parser")
+        data = response.json()
+        raw_content = data.get("content", [])
+        
+        if not raw_content:
+            print("❌ 官方 API 未回傳任何開獎內容")
+            return False
+            
         latest_20_periods = []
         
-        # 尋找網頁中所有的表格行 (奧索網頁主要開獎資料在 tr 內)
-        table_rows = soup.find_all("tr")
-        
-        for row in table_rows:
-            # 尋找包含期號的儲存格
-            period_td = row.find("td", class_="v_period")
-            if not period_td:
-                continue
-                
-            period_num = period_td.text.strip() # 得到真實期號 (例如 115035033)
+        # 解析台彩官方回傳的最新 20 期真實開獎數據
+        for item in raw_content[:20]:
+            period_num = str(item.get("period"))
             
-            # 尋找所有的開獎號碼球 (奧索網通常用特定的 class 來顯示球)
-            ball_tds = row.find_all("td", class_="v_ball")
-            if not ball_tds:
-                # 備用尋找方式：找一般的 td 內包含數字
-                tds = row.find_all("td")
-                if len(tds) >= 3:
-                    # 嘗試解析奧索的號碼欄位
-                    raw_text = tds[1].text.strip()
-                    # 奧索號碼中間通常用空格或逗號隔開
-                    parts = raw_text.replace(",", " ").split()
-                    nums = sorted([int(x) for x in parts if x.isdigit()])
-            else:
-                nums = sorted([int(td.text.strip()) for td in ball_tds if td.text.strip().isdigit()])
+            # drawNo 是開獎號碼數組，將其轉換為整數並排序
+            nums = sorted([int(n) for n in item.get("drawNo", []) if str(n).isdigit()])
+            super_num = int(item.get("superNo", 0)) if str(item.get("superNo")).isdigit() else (nums[0] if nums else 1)
             
-            # 尋找超級獎號 (奧索網通常會特別標註紅球或超級獎號的 class)
-            super_td = row.find("td", class_=["v_super", "v_ball_red"])
-            if super_td and super_td.text.strip().isdigit():
-                super_num = int(super_td.text.strip())
-            else:
-                # 備用：如果沒特別標註，從 tds 欄位或號碼中拿一個做代表
-                tds = row.find_all("td")
-                if len(tds) >= 3 and tds[2].text.strip().isdigit():
-                    super_num = int(tds[2].text.strip())
-                else:
-                    super_num = nums[0] if nums else 1
-            
-            # 確保資料完整才寫入
             if len(nums) == 20:
                 latest_20_periods.append({
                     "period": period_num,
@@ -67,22 +45,8 @@ def fetch_auzo_bingo_data():
                     "super_num": super_num
                 })
                 
-        # --- 萬一網頁結構臨時改變的「保底官方 API 管道」 ---
         if not latest_20_periods:
-            print("⚠️ 奧索網頁解析受阻，自動切換至官方備用資料源...")
-            api_url = "https://api.taiwanlottery.com.tw/TLCAPIWeB/Lottery/BingoBingoResult"
-            api_res = requests.get(api_url, headers=headers, timeout=10)
-            if api_res.status_code == 200:
-                data = api_res.json()
-                for item in data.get("content", [])[:20]:
-                    latest_20_periods.append({
-                        "period": str(item.get("period")),
-                        "numbers": sorted([int(n) for n in item.get("drawNo", [])]),
-                        "super_num": int(item.get("superNo", 0))
-                    })
-
-        if not latest_20_periods:
-            print("❌ 無法取得任何即時開獎數據")
+            print("❌ 無法成功解析開獎數據")
             return False
 
         # --- AI 統計與核心預測邏輯 ---
@@ -93,20 +57,23 @@ def fetch_auzo_bingo_data():
         num_counts = {i: all_numbers_drawn.count(i) for i in range(1, 81)}
         sorted_by_hot = sorted(num_counts, key=num_counts.get, reverse=True)
         
-        # 挑選出統計最熱門的數字作為預測
+        # 挑選出統計中最熱門的數字作為下期預測
         ai_recommended_nums = sorted([
             sorted_by_hot[0], sorted_by_hot[1], 
             sorted_by_hot[5], sorted_by_hot[12], sorted_by_hot[22]
         ])
         ai_recommended_super = sorted_by_hot[0]
         
+        # 算出下一期期號
         next_period_num = str(int(latest_20_periods[0]["period"]) + 1)
+        
+        # 轉換為台灣時間 (UTC+8)
         tw_now = datetime.utcnow() + timedelta(hours=8)
         current_time_str = tw_now.strftime("%Y-%m-%d %H:%M:%S")
         
         output_data = {
             "last_updated": current_time_str,
-            "latest_data": latest_20_periods[:20], # 只取前 20 期顯示在網頁上
+            "latest_data": latest_20_periods,
             "prediction": {
                 "next_period": next_period_num,
                 "recommended_numbers": ai_recommended_nums,
@@ -117,7 +84,7 @@ def fetch_auzo_bingo_data():
         with open("data.json", "w", encoding="utf-8") as f:
             json.dump(output_data, f, ensure_ascii=False, indent=2)
             
-        print(f"✅ 奧索真實數據對接成功！最新期號：{latest_20_periods[0]['period']}")
+        print(f"✅ 官方真實數據同步成功！最新期號：{latest_20_periods[0]['period']}")
         return True
 
     except Exception as e:
@@ -125,4 +92,4 @@ def fetch_auzo_bingo_data():
         return False
 
 if __name__ == "__main__":
-    fetch_auzo_bingo_data()
+    fetch_fast_bingo_data()
