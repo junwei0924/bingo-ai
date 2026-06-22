@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BINGO BINGO 賓果賓果 AI 預測站</title>
+    <title>BINGO BINGO 賓果賓果 AI 大數據預測站</title>
     <style>
         body {
             font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
@@ -48,7 +48,7 @@
         .prediction-box {
             background: #fff5f5;
             border: 2px dashed #ffcdd2;
-            padding: 20px;
+            padding: 25px;
             border-radius: 10px;
             text-align: center;
         }
@@ -56,12 +56,15 @@
             display: flex;
             justify-content: center;
             flex-wrap: wrap;
-            gap: 12px;
+            gap: 10px;
             margin-top: 15px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
         }
         .ball {
-            width: 45px;
-            height: 45px;
+            width: 42px;
+            height: 42px;
             background: #d32f2f;
             color: white;
             border-radius: 50%;
@@ -69,11 +72,12 @@
             align-items: center;
             justify-content: center;
             font-weight: bold;
-            font-size: 18px;
+            font-size: 16px;
             box-shadow: 0 3px 6px rgba(211, 47, 47, 0.3);
         }
         .super-ball {
             background: #ffb300;
+            color: #333;
             box-shadow: 0 3px 6px rgba(255, 179, 0, 0.4);
         }
         table {
@@ -115,7 +119,7 @@
     <div class="subtitle">同步台彩官網數據 · 每 5 分鐘自動刷新</div>
     <div class="update-time" id="update-time">最後同步時間：載入中...</div>
 
-    <div class="section-title">🔮 下期 AI 智慧推薦號碼</div>
+    <div class="section-title">🔮 下期 AI 智慧推薦號碼（精選 10 碼組合）</div>
     <div class="prediction-box">
         <div style="font-size: 16px; color: #555;">預估開出期號：<strong id="next-period" style="color: #d32f2f;">--</strong></div>
         <div class="ball-container" id="prediction-balls">
@@ -141,26 +145,24 @@
 
 <script>
     function fetchData() {
-        // 後端產出的最新 JSON 數據包，強制加上時間戳防快取
         fetch('data.json?t=' + new Date().getTime())
             .then(response => response.json())
             .then(data => {
-                // 1. 更新最後同步時間
                 document.getElementById('update-time').innerText = '最後同步時間：' + data.last_updated;
-
-                // 2. 更新 AI 預測區塊
                 document.getElementById('next-period').innerText = data.prediction.next_period;
                 
                 let predictionHtml = '';
-                // 貼上 5 個推薦號碼球
+                
+                // 渲染 9 個一般推薦號碼球
                 data.prediction.recommended_numbers.forEach(num => {
                     predictionHtml += `<div class="ball">${String(num).padStart(2, '0')}</div>`;
                 });
-                // 貼上超級獎號球（黃色）
-                predictionHtml += `<div class="ball super-ball" title="超級獎號">${String(data.prediction.recommended_super_number).padStart(2, '0')}</div>`;
+                
+                // 加上第 10 個球：超級獎號（黃色）
+                predictionHtml += `<div class="ball super-ball" title="超級獎號 (第10碼)">${String(data.prediction.recommended_super_number).padStart(2, '0')}</div>`;
+                
                 document.getElementById('prediction-balls').innerHTML = predictionHtml;
 
-                // 3. 更新 20 期歷史開獎表格
                 let tableHtml = '';
                 data.latest_data.forEach(period => {
                     let formattedNumbers = period.numbers.map(n => String(n).padStart(2, '0')).join(' ');
@@ -173,17 +175,15 @@
                     `;
                 });
                 document.getElementById('history-table').innerHTML = tableHtml;
-                console.log('🔄 賓果數據已成功更新！');
+                console.log('🔄 10碼數據已刷新！');
             })
             .catch(error => {
                 console.error('❌ 讀取數據失敗:', error);
             });
     }
 
-    // 網頁開啟時立刻載入一次
     fetchData();
-
-    // 【核心設定】每 5 分鐘（300000毫秒）在背景無感刷新一次網頁數據！
+    // 每 5 分鐘在背景無感刷新
     setInterval(fetchData, 300000);
 </script>
 
