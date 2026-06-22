@@ -9,7 +9,7 @@
             font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
             background-color: #f4f6f9;
             margin: 0;
-            padding: 20px; 
+            padding: 20px;
             color: #333;
         }
         .container {
@@ -116,8 +116,8 @@
 
 <div class="container">
     <h1>🎰 BINGO AI 大數據預測站</h1>
-    <div class="subtitle">同步台彩官網數據 · 每 5 分鐘自動刷新</div>
-    <div class="update-time" id="update-time">最後同步時間：載入中...</div>
+    <div class="subtitle">直連台彩官方數據 · 每 5 分鐘即時刷新</div>
+    <div class="update-time" id="update-time">最後同步時間：網頁連線中...</div>
 
     <div class="section-title">🔮 下期 AI 智慧推薦號碼（精選 10 碼組合）</div>
     <div class="prediction-box">
@@ -137,34 +137,93 @@
         </thead>
         <tbody id="history-table">
             <tr>
-                <td colspan="3" style="color: #999;">正在連線官方資料庫，請稍候...</td>
+                <td colspan="3" style="color: #999;">正在即時連線台彩官方資料庫，請稍候...</td>
             </tr>
         </tbody>
     </table>
 </div>
 
 <script>
-    function fetchData() {
-        fetch('data.json?t=' + new Date().getTime())
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('update-time').innerText = '最後同步時間：' + data.last_updated;
-                document.getElementById('next-period').innerText = data.prediction.next_period;
+    function fetchLiveTaiwanLottery() {
+        console.log("🌐 正在繞過後端，由網頁直攻台彩 API...");
+        
+        // 使用台彩官方公開即時 API
+        const url = "https://api.taiwanlottery.com.tw/TLCAPIWeB/Lottery/BingoBingoResult";
+        
+        fetch(url)
+            .then(response => {
+                if (!response.ok) throw new Error('連線失敗');
+                return response.json();
+            })
+            .then(resJson => {
+                const content = resJson.content || [];
+                if (content.length === 0) return;
+
+                let latest_20_periods = [];
                 
+                // 解析官方回傳的數據
+                content.slice(0, 20).forEach(item => {
+                    let period_num = String(item.period);
+                    let nums = (item.drawNo || []).map(n => parseInt(n)).filter(n => !isNaN(n)).sort((a,b)=>a-b);
+                    let super_num = parseInt(item.superNo) || (nums.length > 0 ? nums[0] : 1);
+                    
+                    if (nums.length === 20) {
+                        latest_20_periods.push({
+                            period: period_num,
+                            numbers: nums,
+                            super_num: super_num
+                        });
+                    }
+                });
+
+                // 按期號排序
+                latest_20_periods.sort((a, b) => parseInt(b.period) - parseInt(a.period));
+
+                // --- 前端現場熱門大數據精算 (10個號碼) ---
+                let all_numbers = [];
+                latest_20_periods.forEach(p => all_numbers.push(...p.numbers));
+                
+                let counts = {};
+                for (let i = 1; i <= 80; i++) counts[i] = 0;
+                all_numbers.forEach(n => counts[n]++);
+                
+                let sortedByHot = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).map(Number);
+                
+                // 挑選出 9 個熱門號碼並排序
+                let ai_recommended_nums = [
+                    sortedByHot[0], sortedByHot[1], sortedByHot[2],
+                    sortedByHot[3], sortedByHot[4], sortedByHot[5],
+                    sortedByHot[8], sortedByHot[12], sortedByHot[18]
+                ].sort((a,b)=>a-b);
+                
+                let ai_recommended_super = sortedByHot[0]; // 最熱門的當超級獎號
+
+                // 更新網頁最後同步時間 (顯示當下手機本地時間)
+                let now = new Date();
+                let timeStr = now.getFullYear() + '-' + 
+                              String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                              String(now.getDate()).padStart(2, '0') + ' ' + 
+                              String(now.getHours()).padStart(2, '0') + ':' + 
+                              String(now.getMinutes()).padStart(2, '0') + ':' + 
+                              String(now.getSeconds()).padStart(2, '0');
+                
+                document.getElementById('update-time').innerText = '最後同步時間：' + timeStr;
+                
+                // 更新預估下一期期號
+                let nextPeriod = String(parseInt(latest_20_periods[0].period) + 1);
+                document.getElementById('next-period').innerText = nextPeriod;
+
+                // 渲染 10 顆預測球
                 let predictionHtml = '';
-                
-                // 渲染 9 個一般推薦號碼球
-                data.prediction.recommended_numbers.forEach(num => {
+                ai_recommended_nums.forEach(num => {
                     predictionHtml += `<div class="ball">${String(num).padStart(2, '0')}</div>`;
                 });
-                
-                // 加上第 10 個球：超級獎號（黃色）
-                predictionHtml += `<div class="ball super-ball" title="超級獎號 (第10碼)">${String(data.prediction.recommended_super_number).padStart(2, '0')}</div>`;
-                
+                predictionHtml += `<div class="ball super-ball" title="超級獎號">${String(ai_recommended_super).padStart(2, '0')}</div>`;
                 document.getElementById('prediction-balls').innerHTML = predictionHtml;
 
+                // 渲染歷史表格
                 let tableHtml = '';
-                data.latest_data.forEach(period => {
+                latest_20_periods.forEach(period => {
                     let formattedNumbers = period.numbers.map(n => String(n).padStart(2, '0')).join(' ');
                     tableHtml += `
                         <tr>
@@ -175,16 +234,19 @@
                     `;
                 });
                 document.getElementById('history-table').innerHTML = tableHtml;
-                console.log('🔄 10碼數據已刷新！');
+                console.log('🎰 台彩真實大數據網頁端現場解算完成！');
             })
             .catch(error => {
-                console.error('❌ 讀取數據失敗:', error);
+                console.error('❌ 直連台彩失敗:', error);
+                document.getElementById('history-table').innerHTML = `<tr><td colspan="3" style="color: red;">連線失敗，正在嘗試重新連線...</td></tr>`;
             });
     }
 
-    fetchData();
-    // 每 5 分鐘在背景無感刷新
-    setInterval(fetchData, 300000);
+    // 網頁打開立刻執行
+    fetchLiveTaiwanLottery();
+
+    // 每 5 分鐘 (300000 毫秒) 自動重新向官方資料庫抓取最新開獎
+    setInterval(fetchLiveTaiwanLottery, 300000);
 </script>
 
 </body>
