@@ -1,103 +1,83 @@
 import requests
-from bs4 import BeautifulSoup
 import json
 from datetime import datetime, timedelta
 
-def fetch_auzo_real_data():
-    print("🚀 [AI 分析站後端] 開始用直攻法抓取奧索樂透網賓果數據...")
+def fetch_pure_taiwan_lottery():
+    print("🚀 [AI 分析站後端] 正在直攻台彩官方大數據資料庫...")
     
-    url = "https://lotto.auzo.tw/RK.php"
+    # 台彩官方最核心、最即時的賓果賓果 API
+    url = "https://api.taiwanlottery.com.tw/TLCAPIWeB/Lottery/BingoBingoResult"
+    
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json"
     }
     
     try:
-        # 連線奧索
         response = requests.get(url, headers=headers, timeout=10)
-        response.encoding = 'utf-8'
         
         if response.status_code != 200:
-            print("❌ 連線奧索失敗，狀態碼：", response.status_code)
+            print(f"❌ 請求失敗，台彩伺服器狀態碼：{response.status_code}")
             return False
             
-        soup = BeautifulSoup(response.text, "html.parser")
+        res_json = response.json()
+        content = res_json.get("content", [])
+        
+        if not content:
+            print("❌ 官方資料庫目前未回傳任何開獎內容")
+            return False
+            
         latest_20_periods = []
         
-        # 尋找網頁中所有的表格列
-        rows = soup.find_all("tr")
-        
-        for row in rows:
-            tds = row.find_all("td")
-            # 奧索的賓果表格通常每一列會有：期號、開獎號碼、超級獎號
-            if len(tds) >= 3:
-                period_text = tds[0].text.strip()
+        # 嚴格精準抓取台彩官方回傳的最新開獎數據
+        for item in content[:20]:
+            period_num = str(item.get("period")) # 這會直接拿到 115035041 這種格式
+            
+            # drawNo 是台彩官方的20個中獎號碼陣列
+            nums = sorted([int(n) for n in item.get("drawNo", []) if str(n).isdigit()])
+            
+            # superNo 是官方超級獎號
+            super_num = int(item.get("superNo", 0)) if str(item.get("superNo")).isdigit() else (nums[0] if nums else 1)
+            
+            if len(nums) == 20:
+                latest_20_periods.append({
+                    "period": period_num,
+                    "numbers": nums,
+                    "super_num": super_num
+                })
                 
-                # 檢查第一欄是不是純數字的期號（例如 115035033）
-                if not period_text.isdigit() or len(period_text) < 7:
-                    continue
-                    
-                # 解析開獎號碼 (第二欄，號碼之間通常有空格或逗號)
-                nums_text = tds[1].text.strip()
-                # 把號碼切開，轉成整數並排序
-                raw_nums = nums_text.replace(",", " ").split()
-                nums = sorted([int(x) for x in raw_nums if x.isdigit()])
-                
-                # 解析超級獎號 (第三欄)
-                super_text = tds[2].text.strip()
-                super_num = int(super_text) if super_text.isdigit() else (nums[0] if nums else 1)
-                
-                # 只要剛好是 20 個號碼，就是我們要的賓果資料！
-                if len(nums) == 20:
-                    latest_20_periods.append({
-                        "period": period_text,
-                        "numbers": nums,
-                        "super_num": super_num
-                    })
-
         if not latest_20_periods:
-            print("❌ 奧索結構解析失敗，啟動緊急官方 API 保底方案...")
-            # 保底方案：避免網頁掛掉時畫面全空
-            api_url = "https://api.taiwanlottery.com.tw/TLCAPIWeB/Lottery/BingoBingoResult"
-            api_res = requests.get(api_url, headers=headers, timeout=5)
-            if api_res.status_code == 200:
-                content = api_res.json().get("content", [])
-                for item in content[:20]:
-                    latest_20_periods.append({
-                        "period": str(item.get("period")),
-                        "numbers": sorted([int(n) for n in item.get("drawNo", [])]),
-                        "super_num": int(item.get("superNo", 0))
-                    })
-
-        if not latest_20_periods:
-            print("❌ 無法取得任何資料")
+            print("❌ 解析台彩官方陣列失敗")
             return False
 
-        # 按期號由大到小排序，確保最新的一期在最上面
+        # 依照期號由大到小排序，確保最新的一期在最上面
         latest_20_periods.sort(key=lambda x: int(x["period"]), reverse=True)
 
-        # --- AI 預測邏輯 ---
+        # --- AI 大數據熱門統計預測 ---
         all_numbers = []
         for period in latest_20_periods:
             all_numbers.extend(period["numbers"])
+            
         num_counts = {i: all_numbers.count(i) for i in range(1, 81)}
         sorted_by_hot = sorted(num_counts, key=num_counts.get, reverse=True)
         
+        # 依據台彩最新真實開獎，篩選最熱門與規律數字
         ai_recommended_nums = sorted([
             sorted_by_hot[0], sorted_by_hot[1], 
             sorted_by_hot[5], sorted_by_hot[12], sorted_by_hot[22]
         ])
         ai_recommended_super = sorted_by_hot[0]
         
-        # 下一期期號
+        # 真正的下一期期號（當前最新期號 + 1）
         next_period_num = str(int(latest_20_periods[0]["period"]) + 1)
         
-        # 台灣時間
+        # 強制轉為台灣時間（UTC+8）
         tw_now = datetime.utcnow() + timedelta(hours=8)
         current_time_str = tw_now.strftime("%Y-%m-%d %H:%M:%S")
         
         output_data = {
             "last_updated": current_time_str,
-            "latest_data": latest_20_periods[:20],
+            "latest_data": latest_20_periods,
             "prediction": {
                 "next_period": next_period_num,
                 "recommended_numbers": ai_recommended_nums,
@@ -105,15 +85,16 @@ def fetch_auzo_real_data():
             }
         }
         
+        # 覆寫推回 data.json
         with open("data.json", "w", encoding="utf-8") as f:
             json.dump(output_data, f, ensure_ascii=False, indent=2)
             
-        print(f"✅ 奧索真實數據同步成功！最新即時期號：{latest_20_periods[0]['period']}")
+        print(f"✅ 官方大數據對接成功！最新現場期號已同步為：{latest_20_periods[0]['period']}")
         return True
 
     except Exception as e:
-        print(f"❌ 發生錯誤: {str(e)}")
+        print(f"❌ 執行發生錯誤: {str(e)}")
         return False
 
 if __name__ == "__main__":
-    fetch_auzo_real_data()
+    fetch_pure_taiwan_lottery()
