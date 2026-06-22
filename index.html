@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BINGO AI 賓果賓果 AI 大數據預測站</title>
+    <title>BINGO AI 預測站</title>
     <style>
         body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; color: #333; }
         .container { max-width: 800px; margin: 0 auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
@@ -23,9 +23,9 @@
 
 <div class="container">
     <h1>🎰 BINGO AI 預測站</h1>
-    <div class="update-time" id="update-time">狀態：連線中...</div>
+    <div class="update-time" id="update-time">初始化中...</div>
 
-    <div class="section-title">🔮 下期 AI 預測（含超級獎號）</div>
+    <div class="section-title">🔮 下期 AI 預測</div>
     <div class="prediction-box">
         <div style="margin-bottom:10px;">預估期號：<strong id="next-period" style="color: #d32f2f;">--</strong></div>
         <div class="ball-container" id="prediction-balls"></div>
@@ -34,22 +34,22 @@
     <div class="section-title">📊 近 10 期開獎歷史</div>
     <table>
         <thead><tr><th>期號</th><th>開出號碼</th><th>超級獎號</th></tr></thead>
-        <tbody id="history-table"><tr><td colspan="3">正在從官方擷取數據...</td></tr></tbody>
+        <tbody id="history-table"><tr><td colspan="3">正在連線伺服器...</td></tr></tbody>
     </table>
 </div>
 
 <script>
-    // 使用一個公開的 CORS Proxy 來繞過台彩的阻擋
-    const API_URL = "https://api.allorigins.win/get?url=" + encodeURIComponent("https://api.taiwanlottery.com.tw/TLCAPIWeB/Lottery/BingoBingoResult");
-
     async function updateData() {
+        const timeEl = document.getElementById('update-time');
         try {
-            const response = await fetch(API_URL);
-            const data = await response.json();
-            const res = JSON.parse(data.contents);
-            const content = res.content.slice(0, 10); // 取近 10 期
+            // 使用更穩定的 corsproxy 服務
+            const response = await fetch("https://api.cors.lol/?url=https://api.taiwanlottery.com.tw/TLCAPIWeB/Lottery/BingoBingoResult");
+            if (!response.ok) throw new Error("API 請求失敗");
+            
+            const res = await response.json();
+            const content = res.content.slice(0, 10);
 
-            // 處理 AI 邏輯
+            // AI 邏輯
             let allNums = [];
             content.forEach(p => allNums.push(...p.drawNo.map(Number)));
             let counts = {};
@@ -57,33 +57,22 @@
             allNums.forEach(n => counts[n]++);
             let hotNums = Object.keys(counts).sort((a,b) => counts[b] - counts[a]);
             
-            // 選 9 碼 + 1 超級獎號
             let predNums = hotNums.slice(0, 9).map(Number).sort((a,b)=>a-b);
             let superNum = parseInt(hotNums[0]);
 
-            // 更新畫面
-            document.getElementById('update-time').innerText = '最後更新：' + new Date().toLocaleTimeString();
+            // 更新 UI
+            timeEl.innerText = '最後更新：' + new Date().toLocaleTimeString();
             document.getElementById('next-period').innerText = parseInt(content[0].period) + 1;
-            
-            let ballsHtml = predNums.map(n => `<div class="ball">${n}</div>`).join('') + `<div class="ball super-ball">${superNum}</div>`;
-            document.getElementById('prediction-balls').innerHTML = ballsHtml;
-
-            let tableHtml = content.map(p => `
-                <tr>
-                    <td>${p.period}</td>
-                    <td>${p.drawNo.join(', ')}</td>
-                    <td><span class="super-tag">${p.superNo}</span></td>
-                </tr>
-            `).join('');
-            document.getElementById('history-table').innerHTML = tableHtml;
-
+            document.getElementById('prediction-balls').innerHTML = predNums.map(n => `<div class="ball">${n}</div>`).join('') + `<div class="ball super-ball">${superNum}</div>`;
+            document.getElementById('history-table').innerHTML = content.map(p => `<tr><td>${p.period}</td><td>${p.drawNo.join(', ')}</td><td><span class="super-tag">${p.superNo}</span></td></tr>`).join('');
         } catch (e) {
-            document.getElementById('update-time').innerText = '連線失敗，請檢查網路';
+            timeEl.innerText = '連線超時，請點擊網頁重新整理';
+            console.error(e);
         }
     }
 
     updateData();
-    setInterval(updateData, 300000); // 每 5 分鐘自動刷新
+    setInterval(updateData, 300000); 
 </script>
 </body>
 </html>
