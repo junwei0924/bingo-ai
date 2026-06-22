@@ -26,16 +26,16 @@
 
 <div class="container">
     <h1>🎰 BINGO AI 大數據預測站</h1>
-    <div class="subtitle">同步台彩官網數據 · 每 5 分鐘自動刷新</div>
+    <div class="subtitle">同步台彩官網數據 · 每 5 分鐘全自動刷新</div>
     <div class="update-time" id="update-time">最後同步時間：載入中...</div>
 
-    <div class="section-title">🔮 下期 AI 智慧推薦號碼（精選 10 碼組合）</div>
+    <div class="section-title">🔮 下期 AI 智慧推薦號碼（精選 10 碼組合，含超級獎號）</div>
     <div class="prediction-box">
         <div style="font-size: 16px; color: #555;">預估開出期號：<strong id="next-period" style="color: #d32f2f;">--</strong></div>
         <div class="ball-container" id="prediction-balls"></div>
     </div>
 
-    <div class="section-title">📊 歷史開獎紀錄（近 20 期真實數據）</div>
+    <div class="section-title">📊 歷史開獎紀錄（精選近 10 期真實數據）</div>
     <table>
         <thead>
             <tr><th style="width: 20%;">開獎期號</th><th style="width: 65%;">開出號碼</th><th style="width: 15%;">超級獎號</th></tr>
@@ -48,18 +48,13 @@
 
 <script>
     function fetchData() {
-        // 強制加上時間戳防快取
         fetch('data.json?t=' + new Date().getTime())
-            .then(response => {
-                if (!response.ok) throw new Error('找不到數據檔案');
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
-                if (!data.last_updated) return;
-                
                 document.getElementById('update-time').innerText = '最後同步時間：' + data.last_updated;
                 document.getElementById('next-period').innerText = data.prediction.next_period;
                 
+                // 渲染 9 顆紅球 + 1 顆黃球（共 10 顆）
                 let predictionHtml = '';
                 data.prediction.recommended_numbers.forEach(num => {
                     predictionHtml += `<div class="ball">${String(num).padStart(2, '0')}</div>`;
@@ -67,6 +62,7 @@
                 predictionHtml += `<div class="ball super-ball" title="超級獎號">${String(data.prediction.recommended_super_number).padStart(2, '0')}</div>`;
                 document.getElementById('prediction-balls').innerHTML = predictionHtml;
 
+                // 渲染剛好 10 期的表格
                 let tableHtml = '';
                 data.latest_data.forEach(period => {
                     let formattedNumbers = period.numbers.map(n => String(n).padStart(2, '0')).join(' ');
@@ -80,14 +76,15 @@
                 });
                 document.getElementById('history-table').innerHTML = tableHtml;
             })
-            .catch(error => {
-                console.error('讀取失敗:', error);
-                document.getElementById('history-table').innerHTML = `<tr><td colspan="3" style="color: #999;">等待後端機器人第一次寫入數據，請稍後手動重新整理...</td></tr>`;
-            });
+            .catch(error => console.error('讀取失敗:', error));
     }
 
     fetchData();
-    setInterval(fetchData, 300000); // 5分鐘自動背景刷新
+    
+    // 🔥 【黑科技】每 5 分鐘（300000毫秒）自動重新整理網頁，同時強制觸發後端更新！
+    setInterval(() => {
+        location.reload();
+    }, 300000);
 </script>
 </body>
 </html>
