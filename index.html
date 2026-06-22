@@ -1,21 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>BINGO AI</title>
+</head>
+<body>
+    <div id="update-time">初始化...</div>
+    <div id="next-period"></div>
+    <div id="prediction-balls"></div>
+    <table id="history-table"></table>
+
+    <script>
     async function updateData() {
         const timeEl = document.getElementById('update-time');
-        
-        // 我們改用一個專門處理「防鎖定」的代理服務：api.allorigins.win
-        // 這是目前存活率最高、最穩定的代理方式
         const targetUrl = "https://api.taiwanlottery.com.tw/TLCAPIWeB/Lottery/BingoBingoResult";
         const proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(targetUrl);
         
         try {
             const response = await fetch(proxyUrl);
-            if (!response.ok) throw new Error("代理伺服器連線失敗");
-            
             const rawData = await response.json();
-            // 解析代理伺服器回傳的 JSON 內容
             const res = JSON.parse(rawData.contents);
             const content = res.content.slice(0, 10);
 
-            // --- 下面維持原本的 AI 計算邏輯 ---
             let allNums = [];
             content.forEach(p => allNums.push(...p.drawNo.map(Number)));
             let counts = {};
@@ -27,12 +33,16 @@
             let superNum = parseInt(hotNums[0]);
 
             timeEl.innerText = '最後更新：' + new Date().toLocaleTimeString();
-            document.getElementById('next-period').innerText = parseInt(content[0].period) + 1;
-            document.getElementById('prediction-balls').innerHTML = predNums.map(n => `<div class="ball">${n}</div>`).join('') + `<div class="ball super-ball">${superNum}</div>`;
-            document.getElementById('history-table').innerHTML = content.map(p => `<tr><td>${p.period}</td><td>${p.drawNo.join(', ')}</td><td><span class="super-tag">${p.superNo}</span></td></tr>`).join('');
+            document.getElementById('next-period').innerText = '預測期號：' + (parseInt(content[0].period) + 1);
+            document.getElementById('prediction-balls').innerHTML = predNums.map(n => '<span>' + n + '</span>').join(' ') + ' 超級獎號：' + superNum;
+            document.getElementById('history-table').innerHTML = content.map(p => '<tr><td>' + p.period + '</td><td>' + p.drawNo.join(',') + '</td><td>' + p.superNo + '</td></tr>').join('');
             
         } catch (e) {
-            timeEl.innerText = '連線超時，請按重新整理';
-            console.error("連線錯誤:", e);
+            timeEl.innerText = '連線失敗，請刷新重試';
         }
     }
+    updateData();
+    setInterval(updateData, 300000);
+    </script>
+</body>
+</html>
